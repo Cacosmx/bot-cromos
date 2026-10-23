@@ -4,6 +4,8 @@ import random
 import sqlite3
 from datetime import datetime, timedelta
 import os
+from flask import Flask
+from threading import Thread
 
 # Configuración de Intents de Discord
 intents = discord.Intents.default()
@@ -226,5 +228,44 @@ async def intercambiar(ctx, usuario: discord.Member, tu_cromo_id: int, su_cromo_
 
     await ctx.send(f"🤝 ¡Intercambio completado con éxito entre {ctx.author.mention} y {usuario.mention}!")
 
-# Ejecución usando la variable de entorno para la nube
-bot.run(os.environ.get("DISCORD_TOKEN"))
+# --- COMANDO DE CONFIGURACIÓN AUTOMÁTICA DE CANALES ---
+@bot.command(name="setup_canales")
+@commands.has_permissions(administrator=True)
+async def setup_canales(ctx):
+    guild = ctx.guild
+    
+    # Crear categoría principal
+    categoria = await guild.create_category("🎴 JUEGO DE CROMOS")
+    
+    # Crear canales dentro de la categoría
+    await guild.create_text_channel("general-cromos", category=categoria, topic="Canal general para hablar del juego de cromos.")
+    await guild.create_text_channel("apertura-sobres", category=categoria, topic="Usa aquí el comando !sobre para abrir tus sobres.")
+    await guild.create_text_channel("drops-especiales", category=categoria, topic="Canal donde aparecen los drops automáticos de patrocinadores.")
+    await guild.create_text_channel("intercambios", category=categoria, topic="Usa aquí el comando !trade para tradear cartas.")
+    
+    await ctx.send("✅ ¡Categoría y canales de cromos creados con éxito!")
+
+@setup_canales.error
+async def setup_canales_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("❌ Necesitas permisos de Administrador para ejecutar este comando.")
+
+# --- SERVIDOR WEB FLASK (KEEP-ALIVE PARA RENDER) ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    print("¡Ping recibida! El bot sigue activo.")
+    return "¡El bot de cromos está vivo y online!"
+
+def run_web():
+    app.run(host='0.0.0.0', port=10000)
+
+def keep_alive():
+    t = Thread(target=run_web)
+    t.start()
+
+# --- EJECUCIÓN PRINCIPAL ---
+if __name__ == "__main__":
+    keep_alive()
+    bot.run(os.environ.get("DISCORD_TOKEN"))
