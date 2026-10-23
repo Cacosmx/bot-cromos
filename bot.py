@@ -90,22 +90,41 @@ RAREZAS = [
     ("🌟 Leyenda 3D / Balón de Oro", 5)
 ]
 
-FOTOS_DEMO = [
+# --- BANCOS DE FOTOS REALES PARA ATLETAS (HOMBRES Y MUJERES) ---
+FOTOS_FUTBOL_MASC = [
     "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=500",
-    "https://images.unsplash.com/photo-1517466787929-bc90951d0974?w=500",
     "https://images.unsplash.com/photo-1518091043644-c1d4457512c6?w=500",
-    "https://images.unsplash.com/photo-1543326727-8a19280a97c4?w=500",
-    "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=500",
-    "https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=500",
-    "https://images.unsplash.com/photo-1580748141549-71748dbe0bdc?w=500"
+    "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=500"
 ]
+FOTOS_FUTBOL_FEM = [
+    "https://images.unsplash.com/photo-1517466787929-bc90951d0974?w=500",
+    "https://images.unsplash.com/photo-1543326727-8a19280a97c4?w=500",
+    "https://images.unsplash.com/photo-1560272564-6694ea693db1?w=500"
+]
+
+FOTOS_NBA_MASC = ["https://images.unsplash.com/photo-1546519638-68e109498ffc?w=500", "https://images.unsplash.com/photo-1518063319789-7217e6706b04?w=500"]
+FOTOS_NBA_FEM = ["https://images.unsplash.com/photo-1519766304817-4f37bda74a29?w=500"]
+
+FOTOS_NFL_MASC = ["https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=500"]
+FOTOS_NFL_FEM = ["https://images.unsplash.com/photo-1587280501635-68a0e82cd5ff?w=500"]
+
+FOTOS_HOCKEY_MASC = ["https://images.unsplash.com/photo-1580748141549-71748dbe0bdc?w=500"]
+FOTOS_HOCKEY_FEM = ["https://images.unsplash.com/photo-1515703407324-5f753afd8be8?w=500"]
 
 def generar_cromo_dinamico(deporte):
     genero = random.choice(["Masculino", "Femenino"])
     if genero == "Masculino":
         nombre = f"{random.choice(NOMBRES_MASC)} {random.choice(APELLIDOS_MASC)}"
+        if deporte == "futbol": foto = random.choice(FOTOS_FUTBOL_MASC)
+        elif deporte == "nba": foto = random.choice(FOTOS_NBA_MASC)
+        elif deporte == "nfl": foto = random.choice(FOTOS_NFL_MASC)
+        else: foto = random.choice(FOTOS_HOCKEY_MASC)
     else:
         nombre = f"{random.choice(NOMBRES_FEM)} {random.choice(APELLIDOS_FEM)}"
+        if deporte == "futbol": foto = random.choice(FOTOS_FUTBOL_FEM)
+        elif deporte == "nba": foto = random.choice(FOTOS_NBA_FEM)
+        elif deporte == "nfl": foto = random.choice(FOTOS_NFL_FEM)
+        else: foto = random.choice(FOTOS_HOCKEY_FEM)
 
     equipo = random.choice(EQUIPOS[deporte])
     nacionalidad = random.choice(PAISES[deporte])
@@ -122,7 +141,6 @@ def generar_cromo_dinamico(deporte):
         base = random.randint(75, 84)
 
     stats = f"⚔️ ATA: {base} | 🛡️ DEF: {random.randint(base-10, base)} | ⚡ VEL: {random.randint(base-5, base)}"
-    foto = random.choice(FOTOS_DEMO)
     cromo_id = f"{deporte[:2].upper()}-{random.randint(100000, 999999)}"
 
     return {
@@ -140,7 +158,6 @@ class FlipCardsPackView(discord.ui.View):
         self.deporte_nombre = deporte_nombre
         self.reveladas = [False] * len(cartas)
 
-        # Generar los 8 botones de cartas ocultas desde el inicio
         for idx in range(len(self.cartas)):
             btn = discord.ui.Button(
                 label=f"🎴 Carta #{idx+1} [Girar]", 
@@ -163,7 +180,6 @@ class FlipCardsPackView(discord.ui.View):
             self.reveladas[idx] = True
             carta = self.cartas[idx]
 
-            # Actualizar botón
             self.children[idx].label = f"✨ {carta['nombre']}"
             self.children[idx].style = discord.ButtonStyle.success
             self.children[idx].disabled = True
@@ -198,7 +214,6 @@ async def conseguir_sobre(ctx, deporte: str = None):
     user_id = ctx.author.id
     ahora = datetime.now()
 
-    # Comprobar tiempo de espera (30 minutos)
     cursor.execute("SELECT ultimo_sobre FROM cooldowns WHERE user_id = ? AND deporte = ?", (user_id, deporte))
     resultado = cursor.fetchone()
 
@@ -210,7 +225,6 @@ async def conseguir_sobre(ctx, deporte: str = None):
             await ctx.send(f"⏳ **{ctx.author.name}**, debes esperar **{m}m {s}s** para reclamar otro sobre de {deporte.upper()}.")
             return
 
-    # Registrar el cooldown y guardar el sobre en el inventario
     cursor.execute("INSERT OR REPLACE INTO cooldowns VALUES (?, ?, ?)", (user_id, deporte, ahora.isoformat()))
     cursor.execute("SELECT cantidad FROM inventario_sobres WHERE user_id = ? AND deporte = ?", (user_id, deporte))
     row = cursor.fetchone()
@@ -264,13 +278,10 @@ async def abrir_sobre_guardado(ctx, deporte: str = None):
         await ctx.send(f"❌ No tienes ningún sobre de **{deporte.upper()}** en tu inventario. Consigue uno usando `!sobre {deporte}`.")
         return
 
-    # Restar 1 sobre del inventario
     cursor.execute("UPDATE inventario_sobres SET cantidad = cantidad - 1 WHERE user_id = ? AND deporte = ?", (user_id, deporte))
     
-    # Generar 8 cartas dinámicas
     sobre_cartas = [generar_cromo_dinamico(deporte) for _ in range(8)]
 
-    # Guardar cartas obtenidas en la colección
     for cromo in sobre_cartas:
         cursor.execute('''
         INSERT OR IGNORE INTO inventario_cartas 
@@ -280,7 +291,6 @@ async def abrir_sobre_guardado(ctx, deporte: str = None):
               cromo['categoria'], cromo['genero'], cromo['rareza'], cromo['posicion'], cromo['stats'], cromo['foto']))
     conn.commit()
 
-    # Desplegar la vista interactiva con las 8 cartas para darles la vuelta
     view = FlipCardsPackView(user_id, sobre_cartas, deporte)
     embed = discord.Embed(
         title=f"📦 ¡ABRIENDO SOBRE DE {deporte.upper()}!",
@@ -333,7 +343,7 @@ async def setup_canales(ctx):
     embed_reglas.add_field(name="2. Sistema de Sobres", value="Usa `!sobre [deporte]` cada 30 min para guardar sobres y `!abrir [deporte]` para abrir los que tengas acumulados.", inline=False)
     embed_reglas.add_field(name="3. Intercambios Seguros", value="Usa exclusivamente `!trade @usuario ID_tu_cromo ID_su_cromo` en los canales de tradeo.", inline=False)
     embed_reglas.add_field(name="4. Anti-Multicuentas", value="Prohibido usar cuentas secundarias (alts) para acumular sobres.", inline=False)
-    await chan_reglas.send(embed_reglas)
+    await chan_reglas.send(embed=embed_reglas)
 
     deportes = [("⚽ FÚTBOL", "futbol"), ("🏀 NBA", "nba"), ("🏈 NFL", "nfl"), ("🏒 HOCKEY", "hockey")]
     for titulo, prefijo in deportes:
